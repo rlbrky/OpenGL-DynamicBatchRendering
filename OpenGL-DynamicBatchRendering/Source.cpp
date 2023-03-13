@@ -1,10 +1,20 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include "imgui/imgui.h"
+
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <array>
+
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl3.h"
+
+#include "glm/glm.hpp"
+#include "glm/mat4x4.hpp"
+#include "glm/gtc/matrix_transform.hpp"
 
 struct Vec2
 {
@@ -105,35 +115,35 @@ unsigned int CreateShader(const std::string& vertexShader, const std::string& fr
 	return program;
 }
 
-static std::array<Vertex, 4> CreateQuad(float x, float y, float textureID)
+static Vertex * CreateQuad(Vertex* target, float x, float y, float textureID)
 {
 	float size = 1.0f;
 
-	Vertex v0;
-	v0.position = { x, y, 0.0f };
-	v0.color = { 0.18f, 0.6f, 0.96f, 1.0f };
-	v0.texCoords = { 0.0f, 0.0f };
-	v0.texID = textureID;
+	target->position = { x, y, 0.0f };
+	target->color = { 0.18f, 0.6f, 0.96f, 1.0f };
+	target->texCoords = { 0.0f, 0.0f };
+	target->texID = textureID;
+	target++;
 
-	Vertex v1;
-	v1.position = { x+size, y, 0.0f };
-	v1.color = { 0.18f, 0.6f, 0.96f, 1.0f };
-	v1.texCoords = { 1.0f, 0.0f };
-	v1.texID = textureID;
+	target->position = { x+size, y, 0.0f };
+	target->color = { 0.18f, 0.6f, 0.96f, 1.0f };
+	target->texCoords = { 1.0f, 0.0f };
+	target->texID = textureID;
+	target++;
 
-	Vertex v2;
-	v2.position = { x+size,  y+size, 0.0f };
-	v2.color = { 0.18f, 0.6f, 0.96f, 1.0f };
-	v2.texCoords = { 1.0f, 1.0f };
-	v2.texID = textureID;
+	target->position = { x+size,  y+size, 0.0f };
+	target->color = { 0.18f, 0.6f, 0.96f, 1.0f };
+	target->texCoords = { 1.0f, 1.0f };
+	target->texID = textureID;
+	target++;
 
-	Vertex v3;
-	v3.position = { x, y+size, 0.0f };
-	v3.color = { 0.18f, 0.6f, 0.96f, 1.0f };
-	v3.texCoords = { 0.0f, 1.0f };
-	v3.texID = textureID;
+	target->position = { x, y+size, 0.0f };
+	target->color = { 0.18f, 0.6f, 0.96f, 1.0f };
+	target->texCoords = { 0.0f, 1.0f };
+	target->texID = textureID;
+	target++;
 
-	return { v0, v1, v2, v3 };
+	return target;
 }
 
 int main(void)
@@ -145,7 +155,7 @@ int main(void)
 		return -1;
 
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(800, 600, "Hello World", NULL, NULL);
+	window = glfwCreateWindow(1024, 960, "Hello World", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -162,6 +172,19 @@ int main(void)
 		std::cout << "SORUN WAR LA" << std::endl;
 	}
 
+	// Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+
+	ImGui::StyleColorsDark();
+
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+
+	const size_t MaxQuadCount = 1000;
+	const size_t MaxVertexCount = MaxQuadCount * 4;
+	const size_t MaxIndexCount = MaxQuadCount * 6;
+
 	unsigned int VAO;
 	glCreateVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
@@ -171,7 +194,7 @@ int main(void)
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	//glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * 1000, nullptr, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, MaxVertexCount * sizeof(Vertex), nullptr, GL_DYNAMIC_DRAW);
 
 	glEnableVertexArrayAttrib(VBO, 0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
@@ -185,11 +208,26 @@ int main(void)
 	glEnableVertexArrayAttrib(VBO, 3);
 	glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)offsetof(Vertex, texID));
 	
-	unsigned int indices[] =
+	//unsigned int indices[] =
+	//{
+	//	0, 1, 2, 2, 3, 0,
+	//	4, 5, 6, 6, 7, 4
+	//};
+
+	uint32_t indices[MaxIndexCount];
+	uint32_t offset = 0;
+	for (size_t i = 0; i < MaxIndexCount; i+= 6)
 	{
-		0, 1, 2, 2, 3, 0,
-		4, 5, 6, 6, 7, 4
-	};
+		indices[i + 0] = 0 + offset;
+		indices[i + 1] = 1 + offset;
+		indices[i + 2] = 2 + offset;
+
+		indices[i + 3] = 2 + offset;
+		indices[i + 4] = 3 + offset;
+		indices[i + 5] = 0 + offset;
+
+		offset += 4;
+	}
 
 	unsigned int IBO;
 	glCreateBuffers(1, &IBO);
@@ -201,36 +239,74 @@ int main(void)
 	ShaderProgramSource source = ParseShader("Shader.glsl");
 	unsigned int shaderID = CreateShader(source.VertexSource, source.FragmentSource);
 
-	
+	float quadPosition[2] = { 0.1f , 0.1f };
+	glm::mat4 proj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, -1.0f, 1.0f);
+	glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
+	glm::mat4 model = glm::mat4(1.0f);
+
+	glm::mat4 mvp = proj * view * model;
+	glUniformMatrix4fv(glGetUniformLocation(shaderID, "u_MVP"), 1, GL_FALSE, &mvp[0][0]);
 
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
 	{
+		uint32_t indexCount = 0;
 		//Set dynamic vertex buffer
+		std::array<Vertex, 1000> vertices;
+		Vertex* buffer = vertices.data();
 
-		auto q0 = CreateQuad(-1.5f, -0.5f, 0.0f);
-		auto q1 = CreateQuad( 0.5f, -0.5f, 1.0f);
+		for (int y = 0; y < 5; y++)
+		{
+			for (int x = 0; x < 5; x++)
+			{
+				buffer = CreateQuad(buffer, x, y, (x + y) % 2);
+				indexCount += 6;
+			}
+		}
 
-		Vertex vertices[8];
+		buffer = CreateQuad(buffer, quadPosition[0], quadPosition[1], 0.0f);
+		indexCount += 6;
+
+		/*Vertex vertices[8];
 		memcpy(vertices, q0.data(), q0.size() * sizeof(Vertex));
-		memcpy(vertices + q0.size(), q1.data(), q1.size() * sizeof(Vertex));
+		memcpy(vertices + q0.size(), q1.data(), q1.size() * sizeof(Vertex));*/
 
 		//YOU CAN LOOK INTO GLMAPBUFFER AND GLUNMAPBUFFER- for dynamicly loading data.
 		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(Vertex), vertices.data());
 		
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		glUseProgram(shaderID);
 		//glBindTextureUnit()
-		glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, nullptr);
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		ImGui::Begin("Controls");
+		ImGui::DragFloat2("Quad Position", quadPosition, 0.1f);
+		ImGui::End();
+		glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, nullptr);
 		
+		ImGui::Render();
+		int display_w, display_h;
+		glfwGetFramebufferSize(window, &display_w, &display_h);
+		glViewport(0, 0, display_w, display_h);
+		//glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+		glClear(GL_COLOR_BUFFER_BIT);
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 		glfwSwapBuffers(window);
 
 		
 		glfwPollEvents();
 	}
 
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+
+	glfwDestroyWindow(window);
 	glfwTerminate();
 	return 0;
 }
