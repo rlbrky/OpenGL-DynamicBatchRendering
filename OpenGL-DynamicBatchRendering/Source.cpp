@@ -6,11 +6,25 @@
 #include <string>
 #include <sstream>
 
+struct Vec2
+{
+	float x, y;
+};
+
+struct Vec3
+{
+	float x, y, z;
+};
+
+struct Vec4
+{
+	float x, y, z, w;
+};
 
 struct Vertex {
-	float position[3];
-	float color[4];
-	float texCoords[2];
+	Vec3 position;
+	Vec4 color;
+	Vec2 texCoords;
 	float texID;
 };
 
@@ -51,23 +65,6 @@ ShaderProgramSource ParseShader(const std::string& filepath)
 	return { ss[0].str(), ss[1].str() };
 }
 
-unsigned int CreateShader(const std::string& vertexShader, const std::string& fragmentShader)
-{
-	unsigned int program = glCreateProgram();
-	unsigned int vs = CompileShader(GL_VERTEX_SHADER, vertexShader);
-	unsigned int fs = CompileShader(GL_FRAGMENT_SHADER, fragmentShader);
-
-	glAttachShader(program, vs);
-	glAttachShader(program, fs);
-	glLinkProgram(program);
-	glValidateProgram(program);
-
-	glDeleteShader(vs);
-	glDeleteShader(fs);
-
-	return program;
-}
-
 unsigned int CompileShader(unsigned int type, const std::string& source)
 {
 	unsigned int id = glCreateShader(type);
@@ -89,6 +86,54 @@ unsigned int CompileShader(unsigned int type, const std::string& source)
 		return 0;
 	}
 	return id;
+}
+
+unsigned int CreateShader(const std::string& vertexShader, const std::string& fragmentShader)
+{
+	unsigned int program = glCreateProgram();
+	unsigned int vs = CompileShader(GL_VERTEX_SHADER, vertexShader);
+	unsigned int fs = CompileShader(GL_FRAGMENT_SHADER, fragmentShader);
+
+	glAttachShader(program, vs);
+	glAttachShader(program, fs);
+	glLinkProgram(program);
+	glValidateProgram(program);
+
+	glDeleteShader(vs);
+	glDeleteShader(fs);
+
+	return program;
+}
+
+static std::array<Vertex, 4> CreateQuad(float x, float y, float textureID)
+{
+	float size = 1.0f;
+
+	Vertex v0;
+	v0.position = { x, y, 0.0f };
+	v0.color = { 0.18f, 0.6f, 0.96f, 1.0f };
+	v0.texCoords = { 0.0f, 0.0f };
+	v0.texID = textureID;
+
+	Vertex v1;
+	v1.position = { x+size, y, 0.0f };
+	v1.color = { 0.18f, 0.6f, 0.96f, 1.0f };
+	v1.texCoords = { 1.0f, 0.0f };
+	v1.texID = textureID;
+
+	Vertex v2;
+	v2.position = { x+size,  y+size, 0.0f };
+	v2.color = { 0.18f, 0.6f, 0.96f, 1.0f };
+	v2.texCoords = { 1.0f, 1.0f };
+	v2.texID = textureID;
+
+	Vertex v3;
+	v3.position = { x, y+size, 0.0f };
+	v3.color = { 0.18f, 0.6f, 0.96f, 1.0f };
+	v3.texCoords = { 0.0f, 1.0f };
+	v3.texID = textureID;
+
+	return { v0, v1, v2, v3 };
 }
 
 int main(void)
@@ -163,9 +208,16 @@ int main(void)
 	{
 		//Set dynamic vertex buffer
 
+		auto q0 = CreateQuad(-1.5f, -0.5f, 0.0f);
+		auto q1 = CreateQuad( 0.5f, -0.5f, 1.0f);
+
+		Vertex vertices[8];
+		memcpy(vertices, q0.data(), q0.size() * sizeof(Vertex));
+		memcpy(vertices + q0.size(), q1.data(), q1.size() * sizeof(Vertex));
+
 		//YOU CAN LOOK INTO GLMAPBUFFER AND GLUNMAPBUFFER- for dynamicly loading data.
 		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		//glBufferSubData(GL_ARRAY_BUFFER, 0, );
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
 		
 		glClear(GL_COLOR_BUFFER_BIT);
 
